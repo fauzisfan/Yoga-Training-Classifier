@@ -5,21 +5,13 @@ Please visit this repo for more detailed info https://github.com/rwightman/posen
 How to Run the Code:
 
 Open cmd
-
 type tf_pose\scripts\activate
-
 locate the file to your working directory
-
 run python gui.py
-
 choose the trainer video
-
 type the user's trace-file name
 
 Button Guide
-
 record = get the motion data
-
 stop = stop the user's motion records
-
 Exit = close the App
