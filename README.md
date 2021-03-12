@@ -6,7 +6,7 @@ How to Run the Code:
 
 Open cmd
 type tf_pose\scripts\activate
-locate the file to C:\Users\knum\Documents\Isfan Works\posenet-python
+locate the file to your working directory
 run python gui.py
 choose the trainer video
 type the user's trace-file name
