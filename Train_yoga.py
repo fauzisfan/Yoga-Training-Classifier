@@ -2,7 +2,7 @@
 """
 Created on Tue Feb  9 18:21:11 2021
 
-@author: knum
+@author: isfan (K-Num)
 """
 
 # keras imports for the dataset and building our neural network
@@ -17,7 +17,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import keras
 from keras.models import Sequential, model_from_json
-from keras.layers import Dense
+from keras.layers import Dense, Dropout
 from keras.utils import to_categorical
 import joblib
 from sklearn.model_selection import train_test_split
@@ -28,19 +28,39 @@ def preparets(x, y, num_keypoints):
     y_seq       = np.atleast_1d(np.array([y[start*num_keypoints] for start in range(0, int(y.shape[0]/num_keypoints))]))
     return x_seq, y_seq
 
+'''
+0	nose
+1	Left eye
+2	Right eye
+3	Left ear
+4	Right ear
+5	Left shoulder
+6	Right shoulder
+7	Left elbow
+8	Right elbow
+9	Left wrist
+10	Right wrist
+11	Left pelvic region
+12	Right pelvic area
+13	Left knee
+14	Right knee
+15	Left ankle
+16	Right ankle
+'''
 num_keypoints = 17
 num_content = 2
+# TEST_SIZE = 0.7
 
 def getData(filename, lab, tar):
     # read csv for standing pose
     try:
     	df_tracefile = pd.read_csv(filename)
-    	frame = np.array(df_tracefile[['frame']], dtype=np.int)
-    	pose = np.array(df_tracefile[['pose_score']], dtype=np.float32)
-    	body_part = np.array(df_tracefile[['part_score']], dtype=np.float32)
-    	x_coord = np.array(df_tracefile[['x_coord']], dtype=np.float32)
-    	y_coord = np.array(df_tracefile[['y_coord']], dtype=np.float32)
-    	label = np.array(df_tracefile[['label']], dtype=np.str)
+    	frame = np.array(df_tracefile[['frame']], dtype=int)
+    	pose = np.array(df_tracefile[['pose_score']], dtype=float)
+    	body_part = np.array(df_tracefile[['part_score']], dtype=float)
+    	x_coord = np.array(df_tracefile[['x_coord']], dtype=float)
+    	y_coord = np.array(df_tracefile[['y_coord']], dtype=float)
+    	label = np.array(df_tracefile[['label']], dtype=str)
     except:
     	raise
     
@@ -58,7 +78,7 @@ def getData(filename, lab, tar):
     
     lis = np.array(list(range(0, len(label))))
     
-    lab_target = np.zeros(len(y_target), dtype=np.float32)
+    lab_target = np.zeros(len(y_target), dtype=float)
     
     for i in range(len(frame)):
         #For stand label
@@ -68,6 +88,7 @@ def getData(filename, lab, tar):
     
     return y_target, lab_target, x_seq
 
+#Training Data
 y_target, lab_target, x_seq = getData(filename='coba_none.csv', lab='none', tar='0')
 y_target21, lab_target21, x_seq21 = getData(filename='coba_std1.csv', lab='std', tar='1')
 y_target22, lab_target22, x_seq22 = getData(filename='coba_std2.csv', lab='std', tar='1')
@@ -82,7 +103,12 @@ y_target51, lab_target51, x_seq51 = getData(filename='coba_lft1.csv', lab='lft',
 y_target52, lab_target52, x_seq52 = getData(filename='coba_lft2.csv', lab='lft', tar='4')
 y_target53, lab_target53, x_seq53 = getData(filename='coba_lft3.csv', lab='lft', tar='4')
 
-# Combine all the data
+#Testing Data
+y_target24, lab_target24, x_seq24 = getData(filename='coba_stand_test.csv', lab='std', tar='1')
+y_target44, lab_target44, x_seq44 = getData(filename='coba_right_test.csv', lab='rgt', tar='3')
+y_target54, lab_target54, x_seq54 = getData(filename='coba_left_test.csv', lab='lft', tar='4')
+
+# Combine all the training data
 lab_target_fin = to_categorical(np.concatenate((lab_target,
                                                 lab_target21, lab_target22, lab_target23,
                                                 lab_target31, lab_target32, lab_target33,
@@ -93,12 +119,18 @@ x_seq_fin = np.concatenate((x_seq,
                             x_seq31, x_seq32, x_seq33,
                             x_seq41, x_seq42, x_seq43,
                             x_seq51, x_seq52, x_seq53), axis=0)
-X_input = x_seq_fin[:,4-num_content::,:].reshape(len(x_seq_fin),num_keypoints*(4-num_content))
+X_input = x_seq_fin[:,4-num_content::,:].reshape(len(x_seq_fin),num_keypoints*num_content)
 y_target_fin = np.concatenate((y_target,
                                y_target21, y_target22, y_target23,
                                y_target31, y_target32, y_target33,
                                y_target41, y_target42, y_target43,
                                y_target51, y_target52, y_target53), axis=0)
+
+# Combine all the testing data
+lab_target_test = to_categorical(np.concatenate((lab_target24, lab_target44, lab_target54),axis=0))
+x_seq_test = np.concatenate((x_seq24, x_seq44, x_seq54), axis=0)
+X_input_test = x_seq_test[:,4-num_content::,:].reshape(len(x_seq_test),num_keypoints*num_content)
+y_target_test = np.concatenate((y_target24, y_target44, y_target54), axis=0)
 
 normalizer = preprocessing.StandardScaler()
 tempNorm = normalizer.fit(X_input)
@@ -106,12 +138,18 @@ tempNorm = normalizer.fit(X_input)
 scaler_file = "yoga_scaller.save"
 joblib.dump(tempNorm, scaler_file) 
 
-X_input = tempNorm.transform(X_input)
+X_input_norm = tempNorm.transform(X_input)
 
-X_train, X_test, lab_train, lab_test = train_test_split(X_input, lab_target_fin, test_size=0.7, random_state=42)
-_, _, y_train, y_test = train_test_split(X_input, y_target_fin, test_size=0.7, random_state=42)
+X_input_test_norm = tempNorm.transform(X_input_test)
 
-#Implement Neural Network Here!
+#Training
+X_train, _, lab_train, _ = train_test_split(X_input_norm, lab_target_fin, test_size=0.1, random_state=42)
+_, _, y_train, _ = train_test_split(X_input, y_target_fin, test_size=0.1, random_state=42)
+
+#Testing
+_, X_test, _, lab_test = train_test_split(X_input_test_norm, lab_target_test, test_size=0.9, random_state=42)
+_, _, _, y_test = train_test_split(X_input_test, y_target_test, test_size=0.9, random_state=42)
+
 '''Neural Network'''
 TRAINED_MODEL_NAME = "./model/yoga_net"
 
@@ -119,8 +157,10 @@ TRAINED_MODEL_NAME = "./model/yoga_net"
 tf.get_default_graph()
 
 model = Sequential()
-model.add(Dense(50, activation='relu', input_dim=num_keypoints*(4-num_content)))
+model.add(Dense(50, activation='relu', input_dim=num_keypoints*num_content))
+model.add(Dropout(0.2))
 model.add(Dense(20, activation='relu'))
+model.add(Dropout(0.5))
 # model.add(Dense(10, activation='relu'))
 model.add(Dense(len(lab_target_fin[0]), activation='softmax'))
 
@@ -129,7 +169,7 @@ model.compile(optimizer='adam',
               loss='categorical_crossentropy', 
               metrics=['accuracy'])
 
-history = model.fit(X_train, lab_train, epochs=50)
+history = model.fit(X_train, lab_train, epochs=100)
 
 # # summarize history for accuracy
 # plt.figure()
@@ -176,25 +216,25 @@ loaded_model.compile(optimizer='adam',
               metrics=['accuracy'])
 print("Model Compiled")
 
-pred_test = np.empty((0,len(lab_test[0])),dtype=np.float)
+pred_test = np.empty((0,len(lab_test[0])),dtype=float)
 
 for i in range(len(X_test)):
     pred_test = np.concatenate((pred_test, loaded_model.predict(X_test[i].reshape(1,-1))), axis=0)
     
 # pred_test = loaded_model.predict(X_train)
 
-y_pred = np.array([],dtype=np.str)
+y_pred = np.array([],dtype=str)
 
 for i in range(len(pred_test)):
-    val = np.where(pred_test[i]==max(pred_test[i]))
+    val = np.argmax(pred_test[i], axis = 0)
     # print(val)
-    if (val[0]==1):
+    if (val==1):
         y_pred = np.concatenate((y_pred, np.array(['std'])), axis = 0)
-    elif(val[0]==2):
+    elif(val==2):
         y_pred = np.concatenate((y_pred, np.array(['str'])), axis = 0)
-    elif(val[0]==3):
+    elif(val==3):
         y_pred = np.concatenate((y_pred, np.array(['rgt'])), axis = 0)
-    elif(val[0]==4):
+    elif(val==4):
         y_pred = np.concatenate((y_pred, np.array(['lft'])), axis = 0)
     else:
         y_pred = np.concatenate((y_pred, np.array(['none'])), axis = 0)
