@@ -6,12 +6,10 @@ import time
 import argparse
 import pandas as pd
 import posenet
-from keras.models import model_from_json, Sequential
-from keras.layers import Dense
-from keras.utils import to_categorical 
+from keras.models import model_from_json
 from sklearn import preprocessing
 import joblib
-import webcam_demo
+import db_config
 
 """
 Demo program that displays a webcam using OpenCV
@@ -23,8 +21,8 @@ parser.add_argument('--cam_id', type=int, default=0)
 parser.add_argument('--cam_width', type=int, default=728)
 parser.add_argument('--cam_height', type=int, default=513)
 parser.add_argument('--scale_factor', type=float, default=0.7125)
-parser.add_argument('--file', type=str, default=None, help="Optionally use a video file instead of a live camera")
-parser.add_argument('--out_data', type=str, default='pose1_data.csv')
+parser.add_argument('--file', type=str, default='C:/Users/knum/Documents/Isfan Works/Train Data/Output data/pose1.mp4')
+parser.add_argument('--out_data', type=str, default='coba_gui.csv')
 args = parser.parse_args()
 
 def write_csv(raw_data, outFile):
@@ -41,14 +39,16 @@ def write_csv(raw_data, outFile):
 TRAINED_MODEL_NAME = "./model/yoga_net"
 scaler_file = "yoga_scaller.save"
 
-def main(): 
+def main():
     sg.theme('DarkBrown')
     
     args.file = sg.popup_get_file('Filename to play')
     args.out_data = sg.popup_get_file('Filename to save')
     
-    # args.file = 'C:/Users/knum/Documents/Isfan Works/Train Data/Output data/pose1.mp4'
-    # args.out_data = 'coba_gui.csv'
+    if args.file is None:
+        args.file = 'C:/Users/knum/Documents/Isfan Works/Train Data/Output data/pose1.mp4'
+    if args.out_data is None:
+        args.out_data = 'coba_gui.csv'
 
     # define the window layout
     layout = [[sg.Text('K-Numbers Motion Tracking Web Application', size=(60, 1), justification='Right', font='Helvetica 20'),],
@@ -90,6 +90,9 @@ def main():
                 
             cap.set(3, args.cam_width)
             cap.set(4, args.cam_height)
+            
+            cap_vid.set(3, args.cam_width)
+            cap_vid.set(4, args.cam_height)
     
             start = time.time()
             frame_count = 0
@@ -213,11 +216,14 @@ def main():
                         loop = False
                         recording = False
                         
-                        '''Save For Video Recorder'''
+                        '''Save For Video Recorder'''                
                         raw_data = np.column_stack(
                             [frame, scores, coor, label]
                             )
                         write_csv(raw_data, args.out_data)
+                        
+                        '''send to server'''
+                        db_config.send_package(args.out_data, write = True, delete = False)
                         
                         print('Average FPS: ', frame_count / (time.time() - start))
             
